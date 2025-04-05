@@ -101,7 +101,7 @@ spec:
               subPath: index.html
         - name: flagd
           image: ghcr.io/open-feature/flagd:latest
-          args: ["start", "--uri", "dir:///flags"]
+          args: ["start", "--uri", "file:/flags/flag-config.json"]
           ports:
             - containerPort: 8013
           volumeMounts:
@@ -112,10 +112,9 @@ spec:
           configMap:
             name: html-content
         - name: flags
-          projected:
-            sources:
-              - configMap:
-                  name: open-feature-flagd-config
+          configMap:
+            name: open-feature-flagd-config
+
 
 ---
 # 5. LoadBalancer Service to expose app
