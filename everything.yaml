@@ -62,7 +62,7 @@ spec:
         variants:
           'on': true
           'off': false
-        defaultVariant: 'off'
+        defaultVariant: 'on'
 ---
 # Feature flag source custom resource, configuring flagd to source flags from FeatureFlag CRDs
 apiVersion: core.openfeature.dev/v1beta1
