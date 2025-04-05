@@ -1,5 +1,4 @@
 ---
-# UI and backend flags for OpenFeature
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlag
 metadata:
@@ -23,21 +22,20 @@ spec:
             - yellow
             - null
         variants:
-          blue: 0d507b
-          green: 2f5230
-          red: c05543
-          yellow: d4ac0d
+          blue: "0d507b"
+          green: "2f5230"
+          red: "c05543"
+          yellow: "d4ac0d"
       new-welcome-message:
         defaultVariant: on
         state: ENABLED
         variants:
           on:
-            value: Fib3r: Math at the speed of the internet!
+            value: "Fib3r: Math at the speed of the internet!"
           off:
-            value: Welcome to FaaS: Fibonacci as a Service!
+            value: "Welcome to FaaS: Fibonacci as a Service!"
 
 ---
-# FeatureFlagSource for flagd to discover FeatureFlags from K8s
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlagSource
 metadata:
@@ -51,7 +49,6 @@ spec:
       provider: kubernetes
 
 ---
-# Deployment running OpenFeature demo app + flagd sidecar
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -74,16 +71,14 @@ spec:
       containers:
         - name: open-feature-demo
           image: ghcr.io/open-feature/playground-app:v0.16.0
-          args:
-            - flagd
+          args: ["flagd"]
           ports:
             - containerPort: 30000
           env:
             - name: FLAGD_PORT_WEB
-              value: '30002'
+              value: "30002"
 
 ---
-# LoadBalancer service exposing the demo app (frontend/backend)
 apiVersion: v1
 kind: Service
 metadata:
@@ -95,11 +90,11 @@ spec:
   selector:
     app: open-feature-demo
   ports:
-    - port: 30000
+    - name: app
+      port: 30000
       targetPort: 30000
 
 ---
-# LoadBalancer service for exposing flagd (client-side SDKs)
 apiVersion: v1
 kind: Service
 metadata:
@@ -111,5 +106,6 @@ spec:
   selector:
     app: open-feature-demo
   ports:
-    - port: 30002
+    - name: flagd
+      port: 30002
       targetPort: 8013
