@@ -1,35 +1,38 @@
-# Flags for our UI
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlag
 metadata:
   name: ui-flags
+  namespace: default
   labels:
     app: open-feature-demo
+    app.kubernetes.io/instance: feature-flag
 spec:
   flagSpec:
     flags:
-      new-welcome-message:
-        state: ENABLED
-        variants:
-          'on': true
-          'off': false
-        defaultVariant: 'on'
       hex-color:
-        variants:
-          red: c05543
-          green: 2f5230
-          blue: 0d507b
-          yellow: d4ac0d
         defaultVariant: yellow
         state: ENABLED
         targeting:
           if:
             - in:
-                - '@faas.com'
+                - "@faas.com"
                 - var:
                     - email
             - yellow
             - null
+        variants:
+          blue: 0d507b
+          green: 2f5230
+          red: c05543
+          yellow: d4ac0d
+      new-welcome-message:
+        defaultVariant: on
+        state: ENABLED
+        variants:
+          on:
+            value: Fib3r: Math at the speed of the internet!
+          off:
+            value: Welcome to FaaS: Fibonacci as a Service!
 ---
 # Flags for our backend application
 apiVersion: core.openfeature.dev/v1beta1
