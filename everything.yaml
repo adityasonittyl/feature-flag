@@ -1,150 +1,144 @@
-# 1. Feature Flag CRD (OpenFeature)
+# Flags for our UI
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlag
 metadata:
   name: ui-flags
-  namespace: default
+  labels:
+    app: open-feature-demo
 spec:
   flagSpec:
     flags:
-      welcome-message:
-        defaultVariant: "default"
+      new-welcome-message:
         state: ENABLED
         variants:
-          default:
-            value: "👋 Welcome to the default message!"
-          alt:
-            value: "🚀 This is an alternate welcome message!"
-
+          'on': true
+          'off': false
+        defaultVariant: 'off'
+      hex-color:
+        variants:
+          red: c05543
+          green: 2f5230
+          blue: 0d507b
+          yellow: d4ac0d
+        defaultVariant: blue
+        state: ENABLED
+        targeting:
+          if:
+            - in:
+                - '@faas.com'
+                - var:
+                    - email
+            - yellow
+            - null
 ---
-# 2. HTML ConfigMap
-apiVersion: v1
-kind: ConfigMap
+# Flags for our backend application
+apiVersion: core.openfeature.dev/v1beta1
+kind: FeatureFlag
 metadata:
-  name: html-content
-  namespace: default
-data:
-  index.html: |
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Feature Flag Demo</title>
-    </head>
-    <body>
-      <h1 id="message">Loading message...</h1>
-      <script>
-        fetch('/evaluate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ flagKey: 'welcome-message', context: {} })
-        })
-        .then(res => res.json())
-        .then(data => {
-          document.getElementById('message').innerText = data.value || 'Fallback message';
-        })
-        .catch(() => {
-          document.getElementById('message').innerText = 'Error loading flag.';
-        });
-      </script>
-    </body>
-    </html>
-
+  name: app-flags
+  labels:
+    app: open-feature-demo
+spec:
+  flagSpec:
+    flags:
+      fib-algo:
+        variants:
+          recursive: recursive
+          memo: memo
+          loop: loop
+          binet: binet
+        defaultVariant: recursive
+        state: ENABLED
+        targeting:
+          if:
+            - in:
+                - '@faas.com'
+                - var:
+                    - email
+            - binet
+            - null
+      use-remote-fib-service:
+        state: ENABLED
+        variants:
+          'on': true
+          'off': false
+        defaultVariant: 'off'
 ---
-# 3. Flag config for flagd
-apiVersion: v1
-kind: ConfigMap
+# Feature flag source custom resource, configuring flagd to source flags from FeatureFlag CRDs
+apiVersion: core.openfeature.dev/v1beta1
+kind: FeatureFlagSource
 metadata:
-  name: open-feature-flagd-config
-  namespace: default
-data:
-  flag-config.json: |
-    {
-      "flags": {
-        "welcome-message": {
-          "variants": {
-            "default": { "value": "👋 Welcome to the default message!" },
-            "alt": { "value": "🚀 This is an alternate welcome message!" }
-          },
-          "defaultVariant": "default",
-          "state": "ENABLED"
-        }
-      }
-    }
+  name: flag-sources
+  labels:
+    app: open-feature-demo
+spec:
+  sources:
+    - source: app-flags
+      provider: kubernetes
+    - source: ui-flags
+      provider: kubernetes
 
 ---
-# 4. Deployment with nginx, flagd, and flag-evaluator
+# Deployment of a demo-app using our custom resources
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flag-demo
+  name: open-feature-demo-deployment
   labels:
-    app: flag-demo
-  namespace: default
+    app: open-feature-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: flag-demo
+      app: open-feature-demo
   template:
     metadata:
       labels:
-        app: flag-demo
+        app: open-feature-demo
+      annotations:
+        openfeature.dev/enabled: 'true'
+        openfeature.dev/featureflagsource: 'flag-sources'
     spec:
       containers:
-        - name: nginx
-          image: nginx:1.25
+        - name: open-feature-demo
+          image: ghcr.io/open-feature/playground-app:v0.16.0 # x-release-please-version
+          args:
+            - flagd
           ports:
-            - containerPort: 80
-          volumeMounts:
-            - name: html
-              mountPath: /usr/share/nginx/html/index.html
-              subPath: index.html
-
-        - name: flagd
-          image: ghcr.io/open-feature/flagd:latest
-          args: ["start", "--uri", "file:/flags/flag-config.json"]
-          ports:
-            - containerPort: 8013
-          volumeMounts:
-            - name: flags
-              mountPath: /flags
-
-        - name: flag-evaluator
-          image: theadisoni/feature:latest1
-          ports:
-            - containerPort: 3000
+            - containerPort: 30000
           env:
-            - name: FLAGD_SOCKET_PATH
-              value: "/tmp/flagd.sock"
-          volumeMounts:
-            - name: flagd-socket
-              mountPath: /tmp
-
-      volumes:
-        - name: html
-          configMap:
-            name: html-content
-        - name: flags
-          configMap:
-            name: open-feature-flagd-config
-        - name: flagd-socket
-          emptyDir: {}
-
+            - name: FLAGD_PORT_WEB
+              value: '30002'
 ---
-# 5. LoadBalancer Service to expose nginx + flag-evaluator
+# Service to expose our application
 apiVersion: v1
 kind: Service
 metadata:
-  name: flag-demo-service
-  namespace: default
+  name: open-feature-demo-app-service
+  labels:
+    app: open-feature-demo
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
-    app: flag-demo
+    app: open-feature-demo
   ports:
-    - name: http
-      port: 80
-      targetPort: 80
-    - name: api
-      port: 3000
-      targetPort: 3000
+    - port: 30000
+      targetPort: 30000
+      nodePort: 30000
+---
+# Service to expose flagd for client-side evaluations
+# Note that in production, it's recommended to run a dedicated flagd deployment to serve client-side evaluations.
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-feature-demo-ui-service
+  labels:
+    app: open-feature-demo
+spec:
+  type: NodePort
+  selector:
+    app: open-feature-demo
+  ports:
+    - port: 30002
+      targetPort: 8013
+      nodePort: 30002
