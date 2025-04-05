@@ -11,7 +11,7 @@ spec:
   flagSpec:
     flags:
       new-welcome-message:
-        defaultVariant: "on"  # <-- Quoted here
+        defaultVariant: "off"  # <-- Quoted here
         state: ENABLED
         variants:
           on:
