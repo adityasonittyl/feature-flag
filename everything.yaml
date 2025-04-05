@@ -1,5 +1,4 @@
----
-# 1. Feature Flag CRD (Optional if using flagd config only)
+# 1. Feature Flag CRD (OpenFeature)
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlag
 metadata:
@@ -18,7 +17,7 @@ spec:
             value: "🚀 This is an alternate welcome message!"
 
 ---
-# 2. ConfigMap with HTML content
+# 2. HTML ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -34,7 +33,7 @@ data:
     <body>
       <h1 id="message">Loading message...</h1>
       <script>
-        fetch('http://localhost:8014/evaluate', {
+        fetch('/evaluate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ flagKey: 'welcome-message', context: {} })
@@ -51,7 +50,7 @@ data:
     </html>
 
 ---
-# 3. ConfigMap for flagd flag config
+# 3. Flag config for flagd
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -73,7 +72,7 @@ data:
     }
 
 ---
-# 4. Deployment with nginx, flagd, and flagd-relay
+# 4. Deployment with nginx, flagd, and flag-evaluator
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -110,15 +109,16 @@ spec:
             - name: flags
               mountPath: /flags
 
-        - name: flagd-relay
-          image: ghcr.io/open-feature/flagd-relay:latest
-          env:
-            - name: FLAGD_HOST
-              value: "localhost"
-            - name: FLAGD_PORT
-              value: "8013"
+        - name: flag-evaluator
+          image: ghcr.io/your-repo/flag-evaluator:latest
           ports:
-            - containerPort: 8014
+            - containerPort: 3000
+          env:
+            - name: FLAGD_SOCKET_PATH
+              value: "/tmp/flagd.sock"
+          volumeMounts:
+            - name: flagd-socket
+              mountPath: /tmp
 
       volumes:
         - name: html
@@ -127,9 +127,11 @@ spec:
         - name: flags
           configMap:
             name: open-feature-flagd-config
+        - name: flagd-socket
+          emptyDir: {}
 
 ---
-# 5. LoadBalancer service to expose NGINX (port 80)
+# 5. LoadBalancer Service to expose nginx + flag-evaluator
 apiVersion: v1
 kind: Service
 metadata:
@@ -140,6 +142,9 @@ spec:
   selector:
     app: flag-demo
   ports:
-    - protocol: TCP
+    - name: http
       port: 80
       targetPort: 80
+    - name: api
+      port: 3000
+      targetPort: 3000
