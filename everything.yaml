@@ -42,27 +42,19 @@ spec:
   flagSpec:
     flags:
       fib-algo:
-        variants:
-          recursive: recursive
-          memo: memo
-          loop: loop
-          binet: binet
-        defaultVariant: recursive
+        defaultVariant: binet
         state: ENABLED
-        targeting:
-          if:
-            - in:
-                - '@faas.com'
-                - var:
-                    - email
-            - binet
-            - null
+        variants:
+          binet: binet
+          loop: loop
+          memo: memo
+          recursive: recursive
       use-remote-fib-service:
         state: ENABLED
+        defaultVariant: 'off'
         variants:
           'on': true
           'off': false
-        defaultVariant: 'on'
 ---
 # Feature flag source custom resource, configuring flagd to source flags from FeatureFlag CRDs
 apiVersion: core.openfeature.dev/v1beta1
