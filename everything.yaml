@@ -110,7 +110,7 @@ spec:
               mountPath: /flags
 
         - name: flag-evaluator
-          image: theadisoni/feature:latest
+          image: theadisoni/feature:latest1
           ports:
             - containerPort: 3000
           env:
