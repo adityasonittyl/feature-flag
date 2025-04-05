@@ -110,7 +110,7 @@ spec:
               mountPath: /flags
 
         - name: flag-evaluator
-          image: ghcr.io/your-repo/flag-evaluator:latest
+          image: theadisoni/feature:latest
           ports:
             - containerPort: 3000
           env:
