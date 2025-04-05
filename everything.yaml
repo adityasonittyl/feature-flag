@@ -1,3 +1,5 @@
+---
+# UI and backend flags for OpenFeature
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlag
 metadata:
@@ -33,55 +35,23 @@ spec:
             value: Fib3r: Math at the speed of the internet!
           off:
             value: Welcome to FaaS: Fibonacci as a Service!
+
 ---
-# Flags for our backend application
-apiVersion: core.openfeature.dev/v1beta1
-kind: FeatureFlag
-metadata:
-  name: app-flags
-  labels:
-    app: open-feature-demo
-spec:
-  flagSpec:
-    flags:
-      fib-algo:
-        variants:
-          recursive: recursive
-          memo: memo
-          loop: loop
-          binet: binet
-        defaultVariant: recursive
-        state: ENABLED
-        targeting:
-          if:
-            - in:
-                - '@faas.com'
-                - var:
-                    - email
-            - binet
-            - null
-      use-remote-fib-service:
-        state: ENABLED
-        variants:
-          'on': true
-          'off': false
-        defaultVariant: 'off'
----
-# Feature flag source custom resource, configuring flagd to source flags from FeatureFlag CRDs
+# FeatureFlagSource for flagd to discover FeatureFlags from K8s
 apiVersion: core.openfeature.dev/v1beta1
 kind: FeatureFlagSource
 metadata:
   name: flag-sources
+  namespace: default
   labels:
     app: open-feature-demo
 spec:
   sources:
-    - source: app-flags
-      provider: kubernetes
     - source: ui-flags
       provider: kubernetes
+
 ---
-# Deployment of a demo-app using our custom resources
+# Deployment running OpenFeature demo app + flagd sidecar
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -98,12 +68,12 @@ spec:
       labels:
         app: open-feature-demo
       annotations:
-        openfeature.dev/enabled: 'true'
-        openfeature.dev/featureflagsource: 'flag-sources'
+        openfeature.dev/enabled: "true"
+        openfeature.dev/featureflagsource: "flag-sources"
     spec:
       containers:
         - name: open-feature-demo
-          image: ghcr.io/open-feature/playground-app:v0.16.0 # x-release-please-version
+          image: ghcr.io/open-feature/playground-app:v0.16.0
           args:
             - flagd
           ports:
@@ -111,8 +81,9 @@ spec:
           env:
             - name: FLAGD_PORT_WEB
               value: '30002'
+
 ---
-# Service to expose our application (switched to LoadBalancer)
+# LoadBalancer service exposing the demo app (frontend/backend)
 apiVersion: v1
 kind: Service
 metadata:
@@ -126,8 +97,9 @@ spec:
   ports:
     - port: 30000
       targetPort: 30000
+
 ---
-# Service to expose flagd for client-side evaluations (switched to LoadBalancer)
+# LoadBalancer service for exposing flagd (client-side SDKs)
 apiVersion: v1
 kind: Service
 metadata:
