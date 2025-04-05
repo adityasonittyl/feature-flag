@@ -50,7 +50,7 @@ data:
     </html>
 
 ---
-# 3. Flag config for flagd (mounted into flagd container)
+# 3. Flag config for flagd
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -72,7 +72,7 @@ data:
     }
 
 ---
-# 4. Deployment with nginx and flagd containers
+# 4. Deployment with nginx, flagd, and flag-evaluator
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -99,6 +99,7 @@ spec:
             - name: html
               mountPath: /usr/share/nginx/html/index.html
               subPath: index.html
+
         - name: flagd
           image: ghcr.io/open-feature/flagd:latest
           args: ["start", "--uri", "file:/flags/flag-config.json"]
@@ -107,6 +108,18 @@ spec:
           volumeMounts:
             - name: flags
               mountPath: /flags
+
+        - name: flag-evaluator
+          image: ghcr.io/your-repo/flag-evaluator:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: FLAGD_SOCKET_PATH
+              value: "/tmp/flagd.sock"
+          volumeMounts:
+            - name: flagd-socket
+              mountPath: /tmp
+
       volumes:
         - name: html
           configMap:
@@ -114,10 +127,11 @@ spec:
         - name: flags
           configMap:
             name: open-feature-flagd-config
-
+        - name: flagd-socket
+          emptyDir: {}
 
 ---
-# 5. LoadBalancer Service to expose app
+# 5. LoadBalancer Service to expose nginx + flag-evaluator
 apiVersion: v1
 kind: Service
 metadata:
@@ -128,6 +142,9 @@ spec:
   selector:
     app: flag-demo
   ports:
-    - protocol: TCP
+    - name: http
       port: 80
       targetPort: 80
+    - name: api
+      port: 3000
+      targetPort: 3000
